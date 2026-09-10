@@ -2,11 +2,10 @@
 
 import { Toggle } from "@/components/ui/primitives";
 import { useVault } from "@/components/vault/vault-provider";
-import { saveSettings } from "@/lib/settings-client";
 import { Card, PageHead, Row, RowCard, Select, settingsStyles as s } from "./pieces";
 
 export function SecuritySettings() {
-  const { settings, refresh, online, syncedAt, pendingWrites } = useVault();
+  const { settings, updateSettings, online, syncedAt, pendingWrites } = useVault();
 
   return (
     <>
@@ -20,10 +19,7 @@ export function SecuritySettings() {
             <Select
               label="Clipboard"
               value={String(settings.clipboardSeconds)}
-              onChange={async (v) => {
-                await saveSettings({ vault: { clipboardSeconds: Number(v) } });
-                await refresh();
-              }}
+              onChange={(v) => void updateSettings({ clipboardSeconds: Number(v) })}
               options={[
                 { value: "10", label: "After 10s" },
                 { value: "30", label: "After 30s" },
@@ -40,10 +36,7 @@ export function SecuritySettings() {
             <Toggle
               checked={settings.breachMonitoring}
               label="Breach monitoring"
-              onChange={async (v) => {
-                await saveSettings({ vault: { breachMonitoring: v } });
-                await refresh();
-              }}
+              onChange={(v) => void updateSettings({ breachMonitoring: v })}
             />
           }
         />
@@ -55,10 +48,7 @@ export function SecuritySettings() {
             <Toggle
               checked={settings.offlineEnabled}
               label="Offline access"
-              onChange={async (v) => {
-                await saveSettings({ vault: { offlineEnabled: v } });
-                await refresh();
-              }}
+              onChange={(v) => void updateSettings({ offlineEnabled: v })}
             />
           }
         />

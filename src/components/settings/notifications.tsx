@@ -1,39 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Button, Toggle } from "@/components/ui/primitives";
 import { notify } from "@/components/ui/toast";
-import { useVault } from "@/components/vault/vault-provider";
-import { saveSettings } from "@/lib/settings-client";
+import {
+  useVault,
+  type NotificationPrefs as Prefs,
+} from "@/components/vault/vault-provider";
 import { Card, PageHead, Row, RowCard, settingsStyles as s } from "./pieces";
 
-type Prefs = {
-  breachEmail: boolean;
-  breachInApp: boolean;
-  digestEmail: boolean;
-  trashEmail: boolean;
-  nativeNotifs: boolean;
-};
-
 export function NotificationSettings() {
-  const { boot, refresh } = useVault();
-  const [prefs, setPrefs] = useState<Prefs>({
-    breachEmail: true,
-    breachInApp: true,
-    digestEmail: true,
-    trashEmail: true,
-    nativeNotifs: false,
-  });
+  const { prefs, updatePrefs } = useVault();
 
-  useEffect(() => {
-    if (boot?.prefs) setPrefs((p) => ({ ...p, ...(boot.prefs as Partial<Prefs>) }));
-  }, [boot?.prefs]);
-
-  async function set<K extends keyof Prefs>(key: K, value: Prefs[K]) {
-    setPrefs((p) => ({ ...p, [key]: value }));
-    await saveSettings({ notifications: { [key]: value } });
-    await refresh();
-  }
+  const set = <K extends keyof Prefs>(key: K, value: Prefs[K]) =>
+    updatePrefs({ [key]: value } as Partial<Prefs>);
 
   async function askForNativePermission() {
     if (!("Notification" in window)) {
@@ -43,8 +22,8 @@ export function NotificationSettings() {
     const result = await Notification.requestPermission();
     if (result === "granted") {
       await set("nativeNotifs", true);
-      notify.success("Notifications enabled");
     } else {
+      await set("nativeNotifs", false);
       notify.info("Notifications stay off.");
     }
   }

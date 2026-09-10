@@ -6,7 +6,6 @@ import { Button, Field, Toggle } from "@/components/ui/primitives";
 import { useDialog } from "@/components/ui/dialog";
 import { notify } from "@/components/ui/toast";
 import { useVault } from "@/components/vault/vault-provider";
-import { saveSettings } from "@/lib/settings-client";
 import { Card, PageHead, Row, RowCard, Select, settingsStyles as s } from "./pieces";
 import { relativeDate } from "@/components/vault/vault-screen";
 import { downloadBlob, recoveryKitPdf } from "@/lib/vault/recovery-pdf";
@@ -42,7 +41,7 @@ type Device = {
 
 export function SignInSettings() {
   const params = useSearchParams();
-  const { boot, settings, vaultKey, copy, refresh } = useVault();
+  const { boot, settings, updateSettings, vaultKey, copy, refresh } = useVault();
   const { dialog, confirm } = useDialog();
 
   const [devices, setDevices] = useState<Device[]>([]);
@@ -251,9 +250,7 @@ export function SignInSettings() {
             <Select
               label="Re-verify"
               value={String(settings.reverifyDays)}
-              onChange={(v) =>
-                void saveSettings({ vault: { reverifyDays: Number(v) } })
-              }
+              onChange={(v) => void updateSettings({ reverifyDays: Number(v) })}
               options={[
                 { value: "7", label: "Every 7 days" },
                 { value: "30", label: "Every 30 days" },
@@ -269,9 +266,7 @@ export function SignInSettings() {
             <Select
               label="Auto-lock"
               value={String(settings.autoLockSeconds)}
-              onChange={(v) =>
-                void saveSettings({ vault: { autoLockSeconds: Number(v) } })
-              }
+              onChange={(v) => void updateSettings({ autoLockSeconds: Number(v) })}
               options={[
                 { value: "60", label: "1 minute" },
                 { value: "300", label: "5 minutes" },
@@ -290,7 +285,7 @@ export function SignInSettings() {
             <Toggle
               checked={settings.lockOnBlur}
               label="Lock on blur"
-              onChange={(v) => void saveSettings({ vault: { lockOnBlur: v } })}
+              onChange={(v) => void updateSettings({ lockOnBlur: v })}
             />
           }
         />

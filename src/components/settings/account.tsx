@@ -6,21 +6,20 @@ import { Button, Field } from "@/components/ui/primitives";
 import { useDialog } from "@/components/ui/dialog";
 import { notify } from "@/components/ui/toast";
 import { useVault } from "@/components/vault/vault-provider";
-import { saveSettings } from "@/lib/settings-client";
 import { Card, PageHead, Row, RowCard, Select, settingsStyles as s } from "./pieces";
 import { isPassword, type PasswordPayload } from "@/lib/vault/types";
 import { InstallRow } from "@/components/pwa/install-prompt";
 
 export function AccountSettings() {
   const router = useRouter();
-  const { boot, entries, signOut, refresh } = useVault();
+  const { boot, entries, profile, updateProfile, signOut } = useVault();
   const { dialog, confirm } = useDialog();
   const [displayName, setDisplayName] = useState("");
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    setDisplayName(boot?.user.displayName ?? "");
-  }, [boot?.user.displayName]);
+    setDisplayName(profile.displayName ?? "");
+  }, [profile.displayName]);
 
   /**
    * Immediate, unlike "start over" — see the note on the API route. The
@@ -86,14 +85,10 @@ export function AccountSettings() {
             <Button
               variant="primary"
               onClick={async () => {
-                const ok = await saveSettings({
-                  profile: { displayName: displayName || null },
+                const saved = await updateProfile({
+                  displayName: displayName.trim() || null,
                 });
-                if (ok) {
-                  setDirty(false);
-                  notify.success("Saved");
-                  await refresh();
-                }
+                if (saved) setDirty(false);
               }}
             >
               Save
@@ -122,8 +117,8 @@ export function AccountSettings() {
           control={
             <Select
               label="Language"
-              value="en"
-              onChange={(value) => void saveSettings({ profile: { locale: value } })}
+              value={profile.locale}
+              onChange={(value) => void updateProfile({ locale: value })}
               options={[{ value: "en", label: "English" }]}
             />
           }
@@ -135,10 +130,8 @@ export function AccountSettings() {
           control={
             <Select
               label="Appearance"
-              value="light"
-              onChange={(value) =>
-                void saveSettings({ profile: { appearance: value } })
-              }
+              value={profile.appearance}
+              onChange={(value) => void updateProfile({ appearance: value })}
               options={[{ value: "light", label: "Light" }]}
             />
           }

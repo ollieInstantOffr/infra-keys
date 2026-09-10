@@ -40,7 +40,7 @@ import type {
   VaultEntry,
 } from "@/lib/vault/types";
 import { estimateStrength } from "@/lib/vault/strength";
-import { notify } from "@/components/ui/toast";
+import { notify, notifySaved } from "@/components/ui/toast";
 
 // ------------------------------------------------------------------ types
 
@@ -72,10 +72,26 @@ export type VaultSettings = {
   weeklyBackup: boolean;
 };
 
+export type NotificationPrefs = {
+  breachEmail: boolean;
+  breachInApp: boolean;
+  digestEmail: boolean;
+  trashEmail: boolean;
+  nativeNotifs: boolean;
+};
+
+export type Profile = {
+  displayName: string | null;
+  locale: string;
+  appearance: string;
+};
+
 type Bootstrap = {
   user: {
     email: string;
     displayName: string | null;
+    locale: string;
+    appearance: string;
     hasRecoveryKit: boolean;
     recoverySavedAt: string | null;
     reverifyAt: string;
@@ -93,7 +109,7 @@ type Bootstrap = {
   folders: { id: string; cipher: string; iv: string; color: string; position: number }[];
   tags: { id: string; cipher: string; iv: string; count: number }[];
   settings: VaultSettings | null;
-  prefs: Record<string, boolean> | null;
+  prefs: NotificationPrefs | null;
   deletion: { scheduledAt: string; cancelledAt: string | null } | null;
   pendingApprovals: PendingApproval[];
   recentlyAdded: {
@@ -112,6 +128,8 @@ type VaultContextValue = {
   folders: Folder[];
   tags: Tag[];
   settings: VaultSettings;
+  prefs: NotificationPrefs;
+  profile: Profile;
   online: boolean;
   syncedAt: number | null;
   pendingWrites: number;
@@ -134,6 +152,15 @@ type VaultContextValue = {
   restoreEntry: (id: string) => Promise<void>;
   purgeEntry: (id: string) => Promise<void>;
   emptyTrash: () => Promise<void>;
+
+  /**
+   * Settings writes are optimistic: the control moves at once, the change is
+   * persisted, and a failure puts the old value back and says why. Screens
+   * should never have to re-fetch the whole vault to move a toggle.
+   */
+  updateSettings: (patch: Partial<VaultSettings>) => Promise<boolean>;
+  updatePrefs: (patch: Partial<NotificationPrefs>) => Promise<boolean>;
+  updateProfile: (patch: Partial<Profile>) => Promise<boolean>;
 
   copy: (value: string, label: string) => Promise<void>;
   sealValue: (value: string) => Promise<Sealed>;
@@ -165,6 +192,20 @@ const DEFAULT_SETTINGS: VaultSettings = {
   weeklyBackup: false,
 };
 
+const DEFAULT_PREFS: NotificationPrefs = {
+  breachEmail: true,
+  breachInApp: true,
+  digestEmail: true,
+  trashEmail: true,
+  nativeNotifs: false,
+};
+
+const DEFAULT_PROFILE: Profile = {
+  displayName: null,
+  locale: "en",
+  appearance: "light",
+};
+
 // ----------------------------------------------------------------- helpers
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -192,6 +233,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [settings, setSettings] = useState<VaultSettings>(DEFAULT_SETTINGS);
+  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
+  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
   const [online, setOnline] = useState(true);
   const [syncedAt, setSyncedAt] = useState<number | null>(null);
   const [pendingWrites, setPendingWrites] = useState(0);
@@ -206,6 +249,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       const data = await api<Bootstrap>("/api/vault/bootstrap");
       setBoot(data);
       setSettings(data.settings ?? DEFAULT_SETTINGS);
+      setPrefs(data.prefs ?? DEFAULT_PREFS);
+      setProfile({
+        displayName: data.user.displayName,
+        locale: data.user.locale ?? "en",
+        appearance: data.user.appearance ?? "light",
+      });
       rawItems.current = data.items;
 
       if (data.settings?.offlineEnabled !== false) {
@@ -622,6 +671,56 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     await send("DELETE", "/api/vault/trash");
   }, [send]);
 
+  // ------------------------------------------------------------ settings
+
+  /**
+   * One mechanism for every settings screen: move the control immediately,
+   * persist, confirm, and put the old value back if the write fails. Screens
+   * used to fire-and-forget — the control snapped back to the stale value and
+   * nothing said whether the change had stuck.
+   */
+  const persist = useCallback(
+    async <T,>(
+      patch: Partial<T>,
+      previous: T,
+      apply: (next: T) => void,
+      body: Record<string, unknown>,
+    ): Promise<boolean> => {
+      apply({ ...previous, ...patch });
+
+      try {
+        await api("/api/settings", { method: "PATCH", body: JSON.stringify(body) });
+        notifySaved();
+        return true;
+      } catch (error) {
+        apply(previous);
+        notify.error(
+          error instanceof Error ? error.message : "Couldn't save that setting.",
+        );
+        return false;
+      }
+    },
+    [],
+  );
+
+  const updateSettings = useCallback(
+    (patch: Partial<VaultSettings>) =>
+      persist(patch, settings, setSettings, { vault: patch }),
+    [persist, settings],
+  );
+
+  const updatePrefs = useCallback(
+    (patch: Partial<NotificationPrefs>) =>
+      persist(patch, prefs, setPrefs, { notifications: patch }),
+    [persist, prefs],
+  );
+
+  const updateProfile = useCallback(
+    (patch: Partial<Profile>) =>
+      persist(patch, profile, setProfile, { profile: patch }),
+    [persist, profile],
+  );
+
   // ----------------------------------------------------------- clipboard
 
   const copy = useCallback(
@@ -688,6 +787,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       folders,
       tags,
       settings,
+      prefs,
+      profile,
       online,
       syncedAt,
       pendingWrites,
@@ -701,6 +802,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       signOut,
       createEntry,
       updateEntry,
+      updateSettings,
+      updatePrefs,
+      updateProfile,
       patchMeta,
       trashEntry,
       restoreEntry,
@@ -711,9 +815,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       unsealValue,
     }),
     [
-      status, boot, entries, folders, tags, settings, online, syncedAt,
-      pendingWrites, adoptKey, lock, load, decryptAll, signOut, createEntry,
-      updateEntry, patchMeta, trashEntry, restoreEntry, purgeEntry, emptyTrash,
+      status, boot, entries, folders, tags, settings, prefs, profile, online,
+      syncedAt, pendingWrites, adoptKey, lock, load, decryptAll, signOut,
+      createEntry, updateEntry, updateSettings, updatePrefs, updateProfile,
+      patchMeta, trashEntry, restoreEntry, purgeEntry, emptyTrash,
       copy, sealValue, unsealValue,
     ],
   );

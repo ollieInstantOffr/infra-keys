@@ -7,8 +7,12 @@ import { db } from "@/lib/db";
  * Nothing here is readable without the vault key.
  */
 export const GET = route(async ({ user }) => {
-  const [device, items, folders, tags, settings, prefs, deletion, pendingApprovals] =
+  const [profile, device, items, folders, tags, settings, prefs, deletion, pendingApprovals] =
     await Promise.all([
+      db.user.findUnique({
+        where: { id: user.id },
+        select: { locale: true, appearance: true },
+      }),
       user.deviceId
         ? db.device.findUnique({
             where: { id: user.deviceId },
@@ -51,6 +55,8 @@ export const GET = route(async ({ user }) => {
     user: {
       email: user.email,
       displayName: user.displayName,
+      locale: profile?.locale ?? "en",
+      appearance: profile?.appearance ?? "light",
       hasRecoveryKit: user.hasRecoveryKit,
       recoverySavedAt: user.recoverySavedAt,
       reverifyAt: user.reverifyAt,

@@ -54,6 +54,19 @@ export function toast(input: Omit<Toast, "id">): number {
   return id;
 }
 
+/**
+ * "Saved" confirmations replace each other rather than stacking. Flipping
+ * four toggles in a row should leave one acknowledgement on screen, not a
+ * column of them.
+ */
+let lastSavedId: number | null = null;
+
+export function notifySaved(message = "Saved") {
+  if (lastSavedId !== null) dismissToast(lastSavedId);
+  lastSavedId = toast({ tone: "success", message, duration: 2200 });
+  return lastSavedId;
+}
+
 export const notify = {
   success: (message: string, action?: Toast["action"]) =>
     toast({ tone: "success", message, action }),
