@@ -14,6 +14,7 @@ import { VaultBanners } from "./banners";
 import { CommandPalette } from "./command-palette";
 import { ItemEditor } from "./item-editor";
 import { ApprovalPrompt } from "./approval-prompt";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { Spinner } from "@/components/ui/primitives";
 import { useVault } from "./vault-provider";
 import type { VaultEntry } from "@/lib/vault/types";
@@ -117,6 +118,13 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         )}
 
         <ApprovalPrompt />
+
+        {/*
+          Deliberately inside the frame rather than the root layout: this only
+          renders once the vault is unlocked, so the install prompt never
+          competes with signing in or with the Touch ID ceremony.
+        */}
+        <InstallPrompt />
       </div>
     </ChromeContext.Provider>
   );

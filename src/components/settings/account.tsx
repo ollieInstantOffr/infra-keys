@@ -9,6 +9,7 @@ import { useVault } from "@/components/vault/vault-provider";
 import { saveSettings } from "@/lib/settings-client";
 import { Card, PageHead, Row, RowCard, Select, settingsStyles as s } from "./pieces";
 import { isPassword, type PasswordPayload } from "@/lib/vault/types";
+import { InstallRow } from "@/components/pwa/install-prompt";
 
 export function AccountSettings() {
   const router = useRouter();
@@ -126,6 +127,10 @@ export function AccountSettings() {
           <Stat number={boot?.recentlyAdded.length ?? 0} label="devices added recently" />
         </div>
       </Card>
+
+      <RowCard>
+        <InstallRow />
+      </RowCard>
 
       <RowCard>
         <Row

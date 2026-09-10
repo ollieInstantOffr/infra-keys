@@ -25,19 +25,9 @@ export function VaultBanners() {
   const router = useRouter();
   const { boot, refresh } = useVault();
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const [installEvent, setInstallEvent] = useState<Event | null>(null);
   const [reverifyDays, setReverifyDays] = useState<number | null>(null);
 
   useEffect(() => setDismissed(readDismissed()), []);
-
-  useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      setInstallEvent(e);
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
-  }, []);
 
   useEffect(() => {
     if (!boot?.user.reverifyAt) return;
@@ -147,28 +137,8 @@ export function VaultBanners() {
     );
   }
 
-  // 5 — install prompt.
-  if (installEvent && !dismissed.includes("install")) {
-    banners.push(
-      <Banner
-        key="install"
-        tone="neutral"
-        title="Install keys as an app"
-        body="Own window, Dock icon, works offline."
-        primary={{
-          label: "Install",
-          onClick: async () => {
-            const prompt = installEvent as Event & {
-              prompt: () => Promise<void>;
-            };
-            await prompt.prompt?.();
-            setInstallEvent(null);
-          },
-        }}
-        secondary={{ label: "Not now", onClick: () => dismiss("install") }}
-      />,
-    );
-  }
+  // The install prompt is a floating card of its own — see
+  // components/pwa/install-prompt.tsx.
 
   if (!banners.length) return null;
 
