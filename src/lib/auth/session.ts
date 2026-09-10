@@ -110,10 +110,33 @@ export async function requireUser(): Promise<CurrentUser> {
   return user;
 }
 
+/**
+ * The client's address, as reported by the reverse proxy.
+ *
+ * Order matters, because per-IP rate limits key on this. Nginx sets
+ * `X-Real-IP` from `$remote_addr`, which a client cannot influence, so that
+ * is trusted first. `X-Forwarded-For` is usually built with
+ * `$proxy_add_x_forwarded_for`, which *appends* the real address to whatever
+ * the client sent — so the rightmost entry is the proxy's own observation and
+ * the leftmost is attacker-controlled. Reading the leftmost would let anyone
+ * mint a fresh identity per request and walk straight through the limiter.
+ *
+ * With no proxy in front there is no header to read and requests share the
+ * "unknown" bucket; the per-account limits still apply.
+ */
 export async function clientIp(): Promise<string | undefined> {
   const h = await headers();
-  const fwd = h.get("x-forwarded-for");
-  return fwd?.split(",")[0]?.trim() || h.get("x-real-ip") || undefined;
+
+  const real = h.get("x-real-ip")?.trim();
+  if (real) return real;
+
+  const forwarded = h
+    .get("x-forwarded-for")
+    ?.split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return forwarded?.at(-1) ?? undefined;
 }
 
 /** "Chrome on MacBook Pro" — good enough to show in an approval prompt. */

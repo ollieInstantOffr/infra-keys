@@ -164,10 +164,33 @@ the host's published `3000`), and drop the `ports:` mapping from
 `docker-compose.yml` once you do, so the app is only reachable through the
 proxy.
 
-The app already reads `X-Forwarded-For` for rate limiting, so make sure the
-proxy sets it — Nginx Proxy Manager does by default. If you ever expose the app
-directly, that header becomes client-controlled and per-IP limits can be
-evaded; the per-account limits still hold.
+#### Client addresses
+
+Per-IP rate limits key on the address the proxy reports, and the order the
+headers are read in matters. Nginx sets `X-Real-IP` from `$remote_addr`, which
+a client cannot influence, so that wins. `X-Forwarded-For` is built with
+`$proxy_add_x_forwarded_for`, which *appends* the real address to whatever the
+client sent — so the rightmost entry is the proxy's observation and the
+leftmost is attacker-controlled. Reading the leftmost would let anyone mint a
+fresh identity per request and walk straight past the limiter.
+
+Exposed directly with no proxy, neither header exists and every request shares
+one bucket. The per-account limits still hold, but put a proxy in front.
+
+#### Restricting access to your own IP
+
+An Access List in Nginx Proxy Manager (Access Lists → new list → Access rules →
+`allow <your ip>`, `deny all`, then attach it to the Proxy Host) keeps the app
+off the public internet entirely. Worth doing, with two caveats:
+
+- **It is a second lock, not the only one.** Everything the app does — the
+  magic link, Touch ID, the encrypted vault — still applies behind it. An
+  allowlist that fails open should not hand anyone your passwords.
+- **A changing home IP locks you out.** Most residential connections renew, and
+  CGNAT can move you without warning. Nothing is lost — the vault is encrypted
+  with keys the server never had, so you edit the allow rule and carry on — but
+  you cannot fix it from your phone on mobile data unless you allow that range
+  too. Keep a way back into the proxy admin.
 
 <!-- ------------------------------------------------------------------ -->
 
