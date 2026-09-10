@@ -32,7 +32,7 @@ const verifySchema = z.object({ response: z.any() });
 
 export const PUT = route<{ response: unknown }>(
   async ({ body }) => {
-    const limited = rateLimit(
+    const limited = await rateLimit(
       `unlock:${(body.response as { id?: string })?.id ?? "unknown"}`,
       10,
       10 * 60_000,

@@ -40,7 +40,7 @@ export async function requestMagicLink(rawEmail: string) {
   }
 
   const ip = await clientIp();
-  const byIp = rateLimit(`link:ip:${ip ?? "unknown"}`, 10, 15 * 60_000);
+  const byIp = await rateLimit(`link:ip:${ip ?? "unknown"}`, 10, 15 * 60_000);
   if (!byIp.ok) {
     throw new AuthError(
       "Too many links requested. Try again in a few minutes.",
@@ -48,7 +48,7 @@ export async function requestMagicLink(rawEmail: string) {
       byIp.retryAfter,
     );
   }
-  const byEmail = rateLimit(`link:email:${blindIndex(email)}`, 5, 15 * 60_000);
+  const byEmail = await rateLimit(`link:email:${blindIndex(email)}`, 5, 15 * 60_000);
   if (!byEmail.ok) {
     throw new AuthError(
       "Too many links requested for that address.",
@@ -129,7 +129,7 @@ export async function verifyCrossDeviceCode(code: string) {
   const handle = (await cookies()).get(ORIGIN_COOKIE)?.value;
   if (!handle) throw new AuthError("Start again from this device.", "NO_ORIGIN");
 
-  const limited = rateLimit(`code:${handle}`, 5, 15 * 60_000);
+  const limited = await rateLimit(`code:${handle}`, 5, 15 * 60_000);
   if (!limited.ok) {
     throw new AuthError("Too many tries. Request a new link.", "RATE_LIMITED", limited.retryAfter);
   }

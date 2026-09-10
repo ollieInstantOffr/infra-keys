@@ -11,8 +11,11 @@ import type {
   AuthenticatorTransportFuture,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
+import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+
+const toB64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64url");
 
 const CHALLENGE_COOKIE = "keys_challenge";
 
@@ -55,6 +58,8 @@ function expectedOrigin(): string {
 // ------------------------------------------------------------ enrolment
 
 export async function startDeviceEnrolment(userId: string, email: string) {
+  const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+
   const existing = await db.device.findMany({
     where: { userId, revokedAt: null, credentialId: { not: null } },
     select: { credentialId: true, transports: true },
@@ -63,6 +68,10 @@ export async function startDeviceEnrolment(userId: string, email: string) {
   const options = await generateRegistrationOptions({
     rpName: env.rpName,
     rpID: env.rpId,
+    // A stable handle, so enrolling a second device adds a credential to the
+    // same passkey identity instead of creating a duplicate account entry in
+    // the platform's password manager.
+    userID: new TextEncoder().encode(userId),
     userName: email,
     userDisplayName: email,
     attestationType: "none",
@@ -82,12 +91,18 @@ export async function startDeviceEnrolment(userId: string, email: string) {
           ? (JSON.parse(d.transports) as AuthenticatorTransportFuture[])
           : undefined,
       })),
-    // PRF gives us 32 deterministic bytes to derive this device's wrapping key
-    extensions: prfExtensions({ prf: {} }),
+    // PRF gives us 32 deterministic bytes to derive this device's wrapping
+    // key. Asking for the evaluation up front means browsers that support it
+    // (Chrome 132+, Safari 18+) hand the output back from create() directly,
+    // sparing the user a second prompt.
+    extensions: prfExtensions({ prf: { eval: { first: prfSalt } } }),
   });
 
   await stashChallenge(options.challenge);
-  return options;
+
+  // The salt has to survive to the verify call, so it goes back to the client
+  // alongside the options rather than being invented there.
+  return { ...options, prfSalt: toB64(prfSalt), rpId: env.rpId };
 }
 
 export async function finishDeviceEnrolment(args: {
@@ -176,7 +191,7 @@ export async function startDeviceAuth(userId?: string) {
   });
 
   await stashChallenge(options.challenge);
-  return options;
+  return { ...options, rpId: env.rpId };
 }
 
 export async function finishDeviceAuth(response: AuthenticationResponseJSON) {

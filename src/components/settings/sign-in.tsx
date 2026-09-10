@@ -11,6 +11,7 @@ import { Card, PageHead, Row, RowCard, Select, settingsStyles as s } from "./pie
 import { relativeDate } from "@/components/vault/vault-screen";
 import { downloadBlob, recoveryKitPdf } from "@/lib/vault/recovery-pdf";
 import {
+  describeWebAuthnError,
   enrolDevice,
   touchIdAvailable,
 } from "@/lib/vault/webauthn-client";
@@ -189,7 +190,7 @@ export function SignInSettings() {
       notify.success("Touch ID enrolled on this device");
       await Promise.all([loadDevices(), refresh()]);
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : "Enrolment failed.");
+      notify.error(describeWebAuthnError(error));
     } finally {
       setBusy(false);
     }

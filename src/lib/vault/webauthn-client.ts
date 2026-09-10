@@ -5,7 +5,7 @@ import {
   startRegistration,
   platformAuthenticatorIsAvailable,
 } from "@simplewebauthn/browser";
-import { deviceKeyFromPrf, fromB64, toB64 } from "@/lib/crypto/vault";
+import { deviceKeyFromPrf, fromB64 } from "@/lib/crypto/vault";
 
 /**
  * Touch ID plumbing.
@@ -25,9 +25,40 @@ const FALLBACK_STORE = "secret";
 
 export async function touchIdAvailable(): Promise<boolean> {
   try {
+    if (!window.PublicKeyCredential) return false;
     return await platformAuthenticatorIsAvailable();
   } catch {
     return false;
+  }
+}
+
+/**
+ * WebAuthn throws bare DOMExceptions whose messages are useless to a person
+ * ("The operation either timed out or was not allowed"). Translate the ones
+ * that actually happen into something a user can act on.
+ */
+export function describeWebAuthnError(error: unknown): string {
+  const name = (error as { name?: string })?.name;
+  const message = error instanceof Error ? error.message : "";
+
+  switch (name) {
+    case "NotAllowedError":
+      return "Touch ID was cancelled or timed out. Try again when you're ready.";
+    case "InvalidStateError":
+      return "This device is already enrolled. Sign in with Touch ID instead.";
+    case "NotSupportedError":
+      return "This browser can't use Touch ID for keys.";
+    case "SecurityError":
+      return (
+        "The site's address doesn't match what Touch ID expects. " +
+        "keys must be served over HTTPS on the host set as RP_ID."
+      );
+    case "AbortError":
+      return "That Touch ID request was interrupted.";
+    case "ConstraintError":
+      return "This device can't satisfy the security requirements keys asks for.";
+    default:
+      return message || "Touch ID didn't finish.";
   }
 }
 
@@ -93,10 +124,6 @@ function prfExtensions<T extends PrfExtensionInput>(value: T) {
   return value as unknown as Record<string, unknown>;
 }
 
-export function newPrfSalt(): string {
-  return toB64(crypto.getRandomValues(new Uint8Array(32)));
-}
-
 // ------------------------------------------------------------ enrolment
 
 export type Enrolment = {
@@ -106,27 +133,48 @@ export type Enrolment = {
   usesPrf: boolean;
 };
 
+/** What the server hands back from GET /api/webauthn/register. */
+export type EnrolmentOptions = Parameters<
+  typeof startRegistration
+>[0]["optionsJSON"] & { prfSalt: string; rpId: string };
+
 /**
- * Runs the create() ceremony, then immediately runs a get() to read the PRF
- * output for the credential we just made. Two prompts on some platforms, one
- * on most — and it is the only portable way to obtain PRF at enrolment.
+ * The Touch ID enrolment ceremony.
+ *
+ * Modern browsers evaluate PRF during create() and hand the output straight
+ * back, which is one prompt. Older ones only report `prf.enabled` and need a
+ * second, immediate get() to actually produce the bytes. Both paths end with
+ * the same 32 bytes; only the prompt count differs.
  */
-export async function enrolDevice(options: Parameters<typeof startRegistration>[0]["optionsJSON"]): Promise<Enrolment> {
-  const prfSalt = newPrfSalt();
+export async function enrolDevice(options: EnrolmentOptions): Promise<Enrolment> {
+  const { prfSalt, rpId, ...rest } = options;
 
   const response = await startRegistration({
     optionsJSON: {
-      ...options,
-      extensions: prfExtensions({ ...options.extensions, prf: {} }),
+      ...rest,
+      extensions: prfExtensions({
+        ...rest.extensions,
+        prf: { eval: { first: fromB64(prfSalt) as BufferSource } },
+      }),
     },
   });
 
-  const prfEnabled = Boolean(
-    (response.clientExtensionResults as PrfResults | undefined)?.prf?.enabled,
-  );
+  const results = response.clientExtensionResults as PrfResults | undefined;
 
-  if (prfEnabled) {
-    const prf = await evaluatePrf(response.id, prfSalt);
+  // Path 1 — the output came back with the credential.
+  const direct = readPrf(results);
+  if (direct) {
+    return {
+      response: stripExtensions(response),
+      deviceKey: await deviceKeyFromPrf(direct),
+      prfSalt,
+      usesPrf: true,
+    };
+  }
+
+  // Path 2 — PRF is supported but wasn't evaluated at creation.
+  if (results?.prf?.enabled) {
+    const prf = await evaluatePrf(response.id, prfSalt, rpId);
     if (prf) {
       return {
         response: stripExtensions(response),
@@ -137,6 +185,7 @@ export async function enrolDevice(options: Parameters<typeof startRegistration>[
     }
   }
 
+  // Path 3 — no PRF at all. Weaker, and the UI says so.
   const secret = await fallbackSecret(response.id, true);
   return {
     response: stripExtensions(response),
@@ -150,20 +199,21 @@ export async function enrolDevice(options: Parameters<typeof startRegistration>[
 async function evaluatePrf(
   credentialId: string,
   saltB64: string,
+  rpId: string,
 ): Promise<ArrayBuffer | null> {
   try {
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const credential = (await navigator.credentials.get({
       publicKey: {
         challenge,
-        rpId: window.location.hostname,
+        rpId,
         userVerification: "required",
         allowCredentials: [
           { id: fromB64(credentialId) as BufferSource, type: "public-key" },
         ],
-        extensions: {
+        extensions: prfExtensions({
           prf: { eval: { first: fromB64(saltB64) as BufferSource } },
-        } as AuthenticationExtensionsClientInputs,
+        }) as AuthenticationExtensionsClientInputs,
       },
     })) as PublicKeyCredential | null;
 

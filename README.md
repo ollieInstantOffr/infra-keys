@@ -95,13 +95,45 @@ gesture. Those bytes become the key that wraps the vault key, which is why the
 vault key can live on the device without ever being written to disk in the
 clear.
 
-Browsers without PRF (older Safari, some Linux builds) fall back to a device
-secret in IndexedDB behind the same ceremony. That is weaker — the secret is on
-disk — and Settings → Sign-in says so on the affected device.
+The evaluation is requested during `create()`, so enrolment is a single Touch
+ID prompt on Chrome 132+ and Safari 18+. Browsers that report PRF support but
+don't evaluate at creation get one extra prompt. Browsers with no PRF at all
+fall back to a device secret in IndexedDB behind the same ceremony — weaker,
+because the secret is on disk, and Settings → Sign-in says so on the affected
+device.
+
+### Verifying it
+
+A real Touch ID sensor can't be scripted, so the test drives Chrome's virtual
+authenticator over CDP with PRF enabled — the same extension the real flow
+depends on:
+
+```bash
+npm run test:touch-id
+```
+
+It runs the whole path twice, once with PRF and once without: enrol, write an
+item, reload (which drops the in-memory key), unlock with Touch ID, and assert
+the item still decrypts. That last step is the one that matters — it proves the
+authenticator re-derived the same wrapping key. It also flips the authenticator
+to "not verified" and checks the unlock is refused rather than waved through.
+
+Needs the stack running and `RESEND_API_KEY` unset, since it reads sign-in
+links out of the app container's log.
+
+### Hostnames
 
 WebAuthn is bound to a hostname. `RP_ID` must match the host the app is served
-from (`localhost` for local work, your domain in production), and everything
-except `localhost` needs HTTPS.
+from, and everything except `localhost` needs real HTTPS:
+
+| Served at | `RP_ID` | Works? |
+| --- | --- | --- |
+| `http://localhost:3000` | `localhost` | yes — localhost is exempt from HTTPS |
+| `http://192.168.1.x:3000` | anything | no — not a secure context |
+| `https://keys.example.com` | `keys.example.com` | yes |
+
+Get this wrong and the browser throws a `SecurityError`; the app catches it and
+says so in plain words rather than showing a bare DOMException.
 
 <!-- ------------------------------------------------------------------ -->
 
@@ -153,5 +185,10 @@ drawing.
   what it holds is still what we put there.
 - **Auto-lock drops the key from memory.** It is held in a ref, never in React
   state, so it stays out of DevTools snapshots and serialised errors.
-- **Rate limiting is in-process.** Fine for one container; move it to Redis
-  before running more than one replica.
+- **Rate limiting lives in Postgres, not Redis.** One `INSERT … ON CONFLICT`
+  per check, so concurrent requests can't both read a stale count. Keeping it
+  in the database means the limits survive a restart — an in-memory counter
+  would reset at exactly the moment an attacker would want it to — and a second
+  replica shares the same budget, so scaling out needs no extra infrastructure.
+  If the limiter itself errors, the request is refused rather than waved
+  through.

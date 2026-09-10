@@ -1,37 +1,64 @@
 import "server-only";
+import { db } from "@/lib/db";
+
+export type RateLimitResult = { ok: boolean; retryAfter: number };
 
 /**
- * Small in-process limiter. Enough for a single-container deployment; swap
- * the store for Redis if this ever runs more than one replica.
+ * Fixed-window rate limiting, counted in Postgres.
+ *
+ * Deliberately not in memory: the design treats "5 recovery attempts an
+ * hour" as a security property, and an in-process counter resets whenever
+ * the container restarts — which is exactly the moment an attacker would
+ * pick. Keeping it in the database also means a second replica shares the
+ * same budget, so no Redis is needed to scale out.
+ *
+ * The whole check is one statement, so concurrent requests can't both read
+ * a stale count and slip past the limit.
  */
-type Bucket = { count: number; resetAt: number };
-const buckets = new Map<string, Bucket>();
-
-export function rateLimit(
+export async function rateLimit(
   key: string,
   limit: number,
   windowMs: number,
-): { ok: boolean; retryAfter: number } {
-  const now = Date.now();
-  const existing = buckets.get(key);
+): Promise<RateLimitResult> {
+  const resetAt = new Date(Date.now() + windowMs);
 
-  if (!existing || existing.resetAt < now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return { ok: true, retryAfter: 0 };
-  }
+  try {
+    const [row] = await db.$queryRaw<{ count: number; resetAt: Date }[]>`
+      INSERT INTO "RateLimit" ("key", "count", "resetAt")
+      VALUES (${key}, 1, ${resetAt})
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = CASE
+          WHEN "RateLimit"."resetAt" < now() THEN 1
+          ELSE "RateLimit"."count" + 1
+        END,
+        "resetAt" = CASE
+          WHEN "RateLimit"."resetAt" < now() THEN ${resetAt}
+          ELSE "RateLimit"."resetAt"
+        END
+      RETURNING "count", "resetAt"
+    `;
 
-  existing.count += 1;
-  if (existing.count > limit) {
-    return { ok: false, retryAfter: Math.ceil((existing.resetAt - now) / 1000) };
+    if (!row || row.count <= limit) return { ok: true, retryAfter: 0 };
+
+    return {
+      ok: false,
+      retryAfter: Math.max(
+        1,
+        Math.ceil((row.resetAt.getTime() - Date.now()) / 1000),
+      ),
+    };
+  } catch (error) {
+    // A limiter that fails open is worse than a request that fails closed
+    // on anything guarding a secret, so refuse rather than wave it through.
+    console.error("keys · rate limiter unavailable", error);
+    return { ok: false, retryAfter: 60 };
   }
-  return { ok: true, retryAfter: 0 };
 }
 
-// keep the map from growing without bound
-if (typeof setInterval !== "undefined") {
-  const timer = setInterval(() => {
-    const now = Date.now();
-    for (const [k, b] of buckets) if (b.resetAt < now) buckets.delete(k);
-  }, 60_000);
-  timer.unref?.();
+/** Housekeeping for expired windows. Safe to call from anywhere. */
+export async function pruneRateLimits(): Promise<number> {
+  const { count } = await db.rateLimit.deleteMany({
+    where: { resetAt: { lt: new Date() } },
+  });
+  return count;
 }

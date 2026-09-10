@@ -8,7 +8,11 @@ import { Fingerprint } from "./fingerprint";
 import { Button, Spinner } from "@/components/ui/primitives";
 import { Wordmark } from "@/components/ui/key-mark";
 import { useVault } from "@/components/vault/vault-provider";
-import { deviceKeyFor, unlockCeremony } from "@/lib/vault/webauthn-client";
+import {
+  describeWebAuthnError,
+  deviceKeyFor,
+  unlockCeremony,
+} from "@/lib/vault/webauthn-client";
 import { unwrapVaultKey } from "@/lib/crypto/vault";
 
 type Phase = "checking" | "ready" | "waiting" | "failed" | "paused";
@@ -64,11 +68,7 @@ export function UnlockScreen() {
     } catch (error) {
       const next = attempts + 1;
       setAttempts(next);
-      setMessage(
-        error instanceof Error && error.message.includes("not enrolled")
-          ? "This device isn't enrolled any more."
-          : null,
-      );
+      setMessage(describeWebAuthnError(error));
       setPhase(next >= 3 ? "paused" : "failed");
     }
   }, [device, attempts, adoptKey, router]);

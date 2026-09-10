@@ -331,6 +331,22 @@ model GeneratedPassword {
   @@index([userId, createdAt])
 }
 
+// ------------------------------------------------------------ throttling
+
+/**
+ * Rate-limit counters. In the database rather than in memory so the limits
+ * survive a restart and hold across replicas — the design treats "5 recovery
+ * attempts an hour" as a security guarantee, and an in-process counter would
+ * reset every time the container came back.
+ */
+model RateLimit {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
 // ----------------------------------------------------------------- events
 
 model SecurityEvent {

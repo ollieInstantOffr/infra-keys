@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "icons": "tsx scripts/generate-icons.ts"
+    "icons": "tsx scripts/generate-icons.ts",
+    "test:touch-id": "node tests/touch-id.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
@@ -30,6 +31,7 @@
     "@types/node": "^24.3.1",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
+    "playwright": "^1.63.0",
     "prisma": "^6.16.2",
     "sharp": "^0.34.3",
     "tsx": "^4.20.5",

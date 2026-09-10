@@ -9,7 +9,7 @@ import { rateLimit } from "@/lib/auth/rate-limit";
  * the guardrails in the design require.
  */
 export const GET = route(async ({ user }) => {
-  const limited = rateLimit(`recovery:${user.id}`, 5, 3600_000);
+  const limited = await rateLimit(`recovery:${user.id}`, 5, 3600_000);
   if (!limited.ok) {
     return fail(
       `Too many attempts. Try again in ${Math.ceil(limited.retryAfter / 60)} minutes.`,

@@ -7,7 +7,11 @@ import { Fingerprint } from "./fingerprint";
 import { notify } from "@/components/ui/toast";
 import { useVault } from "@/components/vault/vault-provider";
 import { stashRecoveryCode } from "@/lib/vault/one-time";
-import { enrolDevice, touchIdAvailable } from "@/lib/vault/webauthn-client";
+import {
+  describeWebAuthnError,
+  enrolDevice,
+  touchIdAvailable,
+} from "@/lib/vault/webauthn-client";
 import {
   generateRecoveryCode,
   generateTransferKeypair,
@@ -90,9 +94,7 @@ export function TouchIdSetup({ email }: { email: string }) {
         router.push("/vault");
       }
     } catch (error) {
-      notify.error(
-        error instanceof Error ? error.message : "Touch ID setup didn't finish.",
-      );
+      notify.error(describeWebAuthnError(error));
       setBusy(false);
     }
   }
