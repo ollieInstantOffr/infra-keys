@@ -13,9 +13,13 @@ const COOLING_OFF_DAYS = 7;
  * decrypted — by anyone, us included. The account survives; the encrypted
  * vault is erased after a 7-day notice so a stolen inbox alone can't wipe
  * someone instantly.
+ *
+ * That notice is the whole point here, and it is why deleting an account
+ * from Settings is a different route: there the caller has already unlocked
+ * the vault, so email access is not the only proof and the wait buys nothing.
  */
 const schema = z.object({
-  reason: z.enum(["START_OVER", "DELETE_ACCOUNT"]).default("START_OVER"),
+  reason: z.literal("START_OVER").default("START_OVER"),
 });
 
 export const POST = route<z.infer<typeof schema>>(

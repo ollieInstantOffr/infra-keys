@@ -6,9 +6,15 @@ import { SignInForm } from "@/components/auth/sign-in-form";
 
 export const metadata = { title: "Sign in" };
 
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deleted?: string }>;
+}) {
   const user = await getCurrentUser();
   if (user) redirect("/vault");
+
+  const { deleted } = await searchParams;
 
   return (
     <AuthSplit
@@ -39,7 +45,7 @@ export default async function SignInPage() {
         </>
       }
     >
-      <SignInForm />
+      <SignInForm deleted={deleted === "1"} />
     </AuthSplit>
   );
 }

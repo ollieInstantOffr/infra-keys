@@ -22,6 +22,33 @@ export function AccountSettings() {
     setDisplayName(boot?.user.displayName ?? "");
   }, [boot?.user.displayName]);
 
+  /**
+   * Immediate, unlike "start over" — see the note on the API route. The
+   * local mirror has to go too, or an encrypted copy of a vault that no
+   * longer exists would sit in IndexedDB forever.
+   */
+  async function deleteAccount() {
+    const res = await fetch("/api/account", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ confirm: boot?.user.email ?? "" }),
+    });
+
+    if (!res.ok) {
+      notify.error((await res.json()).error ?? "Couldn't delete the account.");
+      return;
+    }
+
+    const [{ wipeOffline }, { forgetFallbackSecrets }] = await Promise.all([
+      import("@/lib/vault/offline"),
+      import("@/lib/vault/webauthn-client"),
+    ]);
+    await Promise.allSettled([wipeOffline(), forgetFallbackSecrets()]);
+
+    // A full navigation, not a router push: everything in memory should go.
+    window.location.href = "/signin?deleted=1";
+  }
+
   const live = entries.filter((e) => !e.deletedAt);
   const passwords = live.filter((e) => e.type === "PASSWORD").length;
   const notes = live.filter((e) => e.type === "NOTE").length;
@@ -144,7 +171,7 @@ export function AccountSettings() {
         />
         <Row
           title="Delete account"
-          body="Erases vault after a 7-day notice. Export first."
+          body="Erases everything the moment you confirm. Export first."
           last
           control={
             <Button
@@ -154,25 +181,13 @@ export function AccountSettings() {
                   {
                     kind: "irreversible",
                     title: "Delete your account and vault?",
-                    body: `Everything is erased in 7 days. Until then you can cancel from any email we send or by signing in.`,
+                    body: "Every password, note, 2FA secret and device is erased the moment you confirm. There is no waiting period and nothing to cancel.",
                     typed: boot?.user.email,
-                    note: "Export an encrypted backup first — after deletion nobody, including us, can recover it.",
+                    note: "Export an encrypted backup first — afterwards nobody can recover it, including us. The vault was never encrypted with a key we hold.",
                     noteTone: "warn",
-                    confirmLabel: "Schedule deletion",
+                    confirmLabel: "Delete everything now",
                   },
-                  async () => {
-                    const res = await fetch("/api/recovery/start-over", {
-                      method: "POST",
-                      headers: { "content-type": "application/json" },
-                      body: JSON.stringify({ reason: "DELETE_ACCOUNT" }),
-                    });
-                    if (res.ok) {
-                      notify.warning("Deletion scheduled. Check your email to cancel.");
-                      await refresh();
-                    } else {
-                      notify.error((await res.json()).error);
-                    }
-                  },
+                  deleteAccount,
                 )
               }
             >

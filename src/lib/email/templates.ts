@@ -115,6 +115,22 @@ export function breachAlertEmail(args: {
   };
 }
 
+export function accountDeletedEmail(args: { to: string }): EmailContent {
+  return {
+    to: args.to,
+    subject: "Your keys account has been deleted",
+    kicker: "Account deleted",
+    alert: true,
+    title: "Your account and vault are gone",
+    body: "Someone signed in, unlocked the vault and confirmed deletion. Every password, note, 2FA secret and device has been erased.",
+    body2:
+      "There is nothing to cancel and nothing to restore — the vault was encrypted with keys we never held, so we could not recover it even if you asked.",
+    button: { label: "Start a new vault", href: `${env.appUrl}/signin`, dark: true },
+    foot: "If this wasn't you, your email account is the thing to secure now — it was used to sign in.",
+    category: SECURITY,
+  };
+}
+
 export function eraseNoticeEmail(args: {
   to: string;
   eraseOn: string;

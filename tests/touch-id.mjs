@@ -70,8 +70,8 @@ function magicLinkFor(email) {
  *                extension (older Safari, some Linux builds), where keys
  *                falls back to a device secret held in IndexedDB.
  */
-async function run({ hasPrf }) {
-  const EMAIL = `touchid-${hasPrf ? "prf" : "fallback"}-${Date.now()}@example.com`;
+async function run({ hasPrf, standalone = false }) {
+  const EMAIL = `touchid-${hasPrf ? "prf" : "fallback"}${standalone ? "-app" : ""}-${Date.now()}@example.com`;
   resetRateLimits();
 
   const browser = await chromium.launch();
@@ -95,7 +95,36 @@ async function run({ hasPrf }) {
       automaticPresenceSimulation: true,
     },
   });
-  step(`virtual platform authenticator attached, PRF ${hasPrf ? "enabled" : "disabled"}`);
+  if (standalone) {
+    // What the app sees when launched from the Dock rather than a tab.
+    await cdp
+      .send("Emulation.setEmulatedMedia", {
+        features: [{ name: "display-mode", value: "standalone" }],
+      })
+      .catch(() => {});
+
+    const emulated = await page.evaluate(
+      () => window.matchMedia("(display-mode: standalone)").matches,
+    );
+
+    if (!emulated) {
+      // Headless Chromium does not implement display-mode emulation. Rather
+      // than pretend, say so — the installed-app behaviour that actually
+      // matters (an unprompted ceremony being refused for lack of user
+      // activation) needs a real installed window to observe.
+      console.log(
+        "     skipped — this Chromium build cannot emulate display-mode;\n" +
+          "     install the app and unlock it once to check this by hand.",
+      );
+      await browser.close();
+      return;
+    }
+  }
+
+  step(
+    `virtual platform authenticator attached, PRF ${hasPrf ? "enabled" : "disabled"}` +
+      (standalone ? ", running as an installed app" : ""),
+  );
 
   // ------------------------------------------------------- sign in
   await page.goto("/signin");
@@ -159,6 +188,18 @@ async function run({ hasPrf }) {
   await page.waitForURL("**/unlock**", { timeout: 15_000 });
   step("reload locked the vault, as designed");
 
+  if (standalone) {
+    // A cold launch from the Dock has no user activation yet. The screen must
+    // offer a button rather than firing a ceremony the browser will refuse —
+    // three silent refusals used to trip the "Touch ID paused" lockout.
+    const unlockButton = page.getByRole("button", { name: /Unlock with Touch ID/i });
+    await unlockButton.waitFor({ timeout: 15_000 });
+    const pausedText = await page.locator("text=/Touch ID is paused/i").count();
+    assert.equal(pausedText, 0, "a cold launch tripped the attempt lockout");
+    step("cold launch offers a button instead of burning attempts");
+    await unlockButton.click();
+  }
+
   await page.waitForURL("**/vault**", { timeout: 30_000 });
   step("Touch ID unlocked the vault");
 
@@ -172,22 +213,34 @@ async function run({ hasPrf }) {
   await page.getByRole("button", { name: "Account" }).click();
   await page.getByRole("menuitem", { name: /Lock vault/ }).click();
   await page.waitForURL("**/unlock**", { timeout: 15_000 });
+
+  // The unprompted attempt is not counted, by design — so drive a real,
+  // click-initiated one, which is what must be refused and counted.
+  const retry = page.getByRole("button", { name: /Unlock with Touch ID/i });
+  await retry.waitFor({ timeout: 15_000 });
+  await retry.click();
+
   await page.waitForSelector("text=/didn't match|cancelled|Try Touch ID again/i", {
     timeout: 30_000,
   });
+  const stillLocked = page.url().includes("/unlock");
+  assert.ok(stillLocked, "a failed verification let the vault open anyway");
   step("a failed verification is refused, not waved through");
 
   await browser.close();
 }
 
 async function main() {
-  console.log("\nkeys · Touch ID, with the PRF extension");
+  console.log("\nkeys · Touch ID in a browser tab, with the PRF extension");
   await run({ hasPrf: true });
 
-  console.log("\nkeys · Touch ID, without PRF (device-secret fallback)");
+  console.log("\nkeys · Touch ID in a browser tab, without PRF (device-secret fallback)");
   await run({ hasPrf: false });
 
-  console.log(`\n  ${passed} checks passed — Touch ID works on both paths.\n`);
+  console.log("\nkeys · Touch ID in the installed app (display-mode: standalone)");
+  await run({ hasPrf: true, standalone: true });
+
+  console.log(`\n  ${passed} checks passed.\n`);
 }
 
 main().catch(async (error) => {

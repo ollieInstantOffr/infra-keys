@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field } from "@/components/ui/primitives";
 
-export function SignInForm() {
+export function SignInForm({ deleted }: { deleted?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +36,21 @@ export function SignInForm() {
       onSubmit={submit}
       style={{ display: "flex", flexDirection: "column", gap: 20 }}
     >
+      {deleted && (
+        <div
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            background: "rgba(28,25,23,.05)",
+            font: "500 12px/1.5 var(--font-sans)",
+            color: "var(--text)",
+          }}
+        >
+          Your account and vault were deleted. Signing in with the same address
+          starts a new, empty vault.
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div className="t-title">Continue with email</div>
         <div style={{ font: "400 14px/1.5 var(--font-sans)", color: "var(--muted)" }}>

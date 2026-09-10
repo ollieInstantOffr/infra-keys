@@ -242,6 +242,18 @@ drawing.
   what it holds is still what we put there.
 - **Auto-lock drops the key from memory.** It is held in a ref, never in React
   state, so it stays out of DevTools snapshots and serialised errors.
+- **Deleting an account is immediate.** It is a different action from "start
+  over": that one waits seven days because email access is the only proof of
+  identity, so a stolen inbox must not be able to wipe someone instantly. A
+  delete from Settings happens with the vault already unlocked and the address
+  typed out, so the wait buys nothing. Every relation cascades from the user
+  row, so one delete takes the vault, its history, devices, sessions, folders,
+  tags and audit trail with it.
+- **The unlock screen starts a ceremony on arrival, but doesn't count it.**
+  Safari and an installed app launched from the Dock require a transient user
+  activation, so that unprompted attempt is refused before any prompt is drawn.
+  Only click-initiated attempts count towards the three strikes — otherwise
+  three cold launches of the installed app would lock you out of your vault.
 - **Rate limiting lives in Postgres, not Redis.** One `INSERT … ON CONFLICT`
   per check, so concurrent requests can't both read a stale count. Keeping it
   in the database means the limits survive a restart — an in-memory counter

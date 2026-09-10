@@ -15,7 +15,13 @@ import {
 } from "@/lib/vault/webauthn-client";
 import { unwrapVaultKey } from "@/lib/crypto/vault";
 
-type Phase = "checking" | "ready" | "waiting" | "failed" | "paused";
+type Phase =
+  | "checking"
+  | "needs-gesture"
+  | "ready"
+  | "waiting"
+  | "failed"
+  | "paused";
 
 /**
  * Touch ID sign-in for a returning device. Three strikes pauses Touch ID for
@@ -37,7 +43,15 @@ export function UnlockScreen() {
     if (status === "needs-approval") router.replace("/device/new");
   }, [status, router]);
 
-  const unlock = useCallback(async () => {
+  /**
+   * `viaGesture` is what separates "the person declined" from "the browser
+   * refused". Safari and an installed app launched from the Dock require a
+   * transient user activation, so the ceremony this screen fires on arrival
+   * can be rejected before any prompt is drawn. A ceremony started by a click
+   * cannot be — so only those count towards the three strikes.
+   */
+  const unlock = useCallback(
+    async (viaGesture = true) => {
     if (!device?.wrappedVaultKey || !device.prfSalt) return;
 
     setPhase("waiting");
@@ -66,20 +80,33 @@ export function UnlockScreen() {
       await adoptKey(vaultKey);
       router.replace("/vault");
     } catch (error) {
+      // The unprompted attempt failing is expected on Safari and in the
+      // installed app. Offer the button rather than spending an attempt —
+      // otherwise three cold launches would lock someone out of their vault.
+      if (!viaGesture) {
+        setPhase("needs-gesture");
+        return;
+      }
+
       const next = attempts + 1;
       setAttempts(next);
       setMessage(describeWebAuthnError(error));
       setPhase(next >= 3 ? "paused" : "failed");
     }
-  }, [device, attempts, adoptKey, router]);
+    },
+    [device, attempts, adoptKey, router],
+  );
 
   useEffect(() => {
-    if (status === "locked" && phase === "checking") {
-      setPhase("ready");
-      // Kick the ceremony off immediately — the design shows the sensor
-      // already listening on arrival.
-      void unlock();
-    }
+    if (status !== "locked" || phase !== "checking") return;
+
+    // The design shows the sensor already listening on arrival, so always try.
+    // Chrome allows an unprompted ceremony and this just works. Safari, and an
+    // installed app launched from the Dock, require a transient user
+    // activation and reject immediately — which `unlock` recognises by how
+    // fast it failed and turns into a button instead of a spent attempt.
+    setPhase("ready");
+    void unlock(false);
   }, [status, phase, unlock]);
 
   if (status === "booting") {
@@ -132,7 +159,9 @@ export function UnlockScreen() {
         <div style={{ font: "400 15px/1.5 var(--font-sans)", color: "var(--muted)" }}>
           {phase === "failed"
             ? (message ?? "That didn't match. Try again.")
-            : "Touch the sensor to unlock your vault."}
+            : phase === "needs-gesture"
+              ? "Unlock your vault with Touch ID."
+              : "Touch the sensor to unlock your vault."}
         </div>
       </div>
 
@@ -150,7 +179,13 @@ export function UnlockScreen() {
         {phase === "waiting" ? (
           <span>Waiting for Touch ID…</span>
         ) : (
-          <Button variant="primary" size="lg" block onClick={unlock}>
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            autoFocus
+            onClick={() => unlock(true)}
+          >
             {phase === "failed" ? "Try Touch ID again" : "Unlock with Touch ID"}
           </Button>
         )}
