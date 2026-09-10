@@ -98,7 +98,7 @@ export async function requestMagicLink(rawEmail: string) {
   (await cookies()).set(ORIGIN_COOKIE, originHandle, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: env.secureCookies,
     path: "/",
     maxAge: LINK_TTL_MINUTES * 60,
   });

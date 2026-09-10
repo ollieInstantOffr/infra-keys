@@ -42,11 +42,13 @@ export function CodeInput({
   onChange,
   onComplete,
   error,
+  disabled,
 }: {
   value: string;
   onChange: (next: string) => void;
   onComplete?: (code: string) => void;
   error?: string | null;
+  disabled?: boolean;
 }) {
   const digits = value.padEnd(6, " ").slice(0, 6).split("");
 
@@ -66,6 +68,8 @@ export function CodeInput({
             key={i}
             className={styles.cell}
             inputMode="numeric"
+            autoComplete={i === 0 ? "one-time-code" : "off"}
+            disabled={disabled}
             maxLength={1}
             value={digit.trim()}
             aria-label={`Digit ${i + 1}`}

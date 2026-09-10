@@ -28,7 +28,7 @@ async function stashChallenge(challenge: string) {
   (await cookies()).set(CHALLENGE_COOKIE, challenge, {
     httpOnly: true,
     sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
+    secure: env.secureCookies,
     path: "/",
     maxAge: 120,
   });

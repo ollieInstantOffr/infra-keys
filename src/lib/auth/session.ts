@@ -2,6 +2,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { randomToken, sha256 } from "@/lib/crypto/server";
 import { decryptField } from "@/lib/crypto/server";
 
@@ -13,7 +14,7 @@ function cookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: env.secureCookies,
     path: "/",
     maxAge: maxAgeSeconds,
   };

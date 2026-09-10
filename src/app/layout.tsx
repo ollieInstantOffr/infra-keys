@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ServiceWorker } from "@/components/pwa/service-worker";
+import { configWarnings } from "@/lib/env";
 import { ToastHost } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
@@ -32,6 +33,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
 };
+
+for (const warning of configWarnings()) {
+  console.warn(`keys · config · ${warning}`);
+}
 
 export default function RootLayout({
   children,

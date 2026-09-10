@@ -123,17 +123,51 @@ links out of the app container's log.
 
 ### Hostnames
 
-WebAuthn is bound to a hostname. `RP_ID` must match the host the app is served
-from, and everything except `localhost` needs real HTTPS:
+WebAuthn is bound to a hostname, and so is the cookie's `Secure` flag. Both
+follow `APP_URL` — the address the **browser** uses, which behind a proxy is
+the public one, never the container's.
 
-| Served at | `RP_ID` | Works? |
-| --- | --- | --- |
-| `http://localhost:3000` | `localhost` | yes — localhost is exempt from HTTPS |
-| `http://192.168.1.x:3000` | anything | no — not a secure context |
-| `https://keys.example.com` | `keys.example.com` | yes |
+| Browser opens | `APP_URL` | `RP_ID` | |
+| --- | --- | --- | --- |
+| `http://localhost:3000` | same | `localhost` | works — localhost is exempt from HTTPS |
+| `http://192.168.1.x:3000` | same | anything | no: not a secure context, WebAuthn refuses |
+| `https://keys.example.com` | same | `keys.example.com` | works |
 
-Get this wrong and the browser throws a `SecurityError`; the app catches it and
-says so in plain words rather than showing a bare DOMException.
+Get `RP_ID` wrong and the browser throws a `SecurityError`; the app catches it
+and says so in plain words. Get `APP_URL`'s *scheme* wrong and sign-in loops
+back to the login page, because a `Secure` cookie sent over plain HTTP is
+thrown away by the browser — Chrome forgives this on localhost, Safari does
+not, and nothing forgives it on a LAN address.
+
+`/api/health` reports both mistakes, and they are logged once at boot:
+
+```bash
+curl -s http://localhost:3000/api/health
+# {"ok":true,"db":true,"warnings":[]}
+```
+
+### Behind a reverse proxy
+
+TLS terminating at Nginx (or Nginx Proxy Manager) is the expected setup — the
+app speaks plain HTTP on the inside and that is fine, because `Secure` is about
+the browser-to-proxy leg. Point the proxy at the app container and set:
+
+```ini
+APP_URL=https://keys.example.com
+RP_ID=keys.example.com
+```
+
+In Nginx Proxy Manager: a Proxy Host for `keys.example.com` forwarding to the
+`app` container on port `3000`, with **Websockets Support** on and an SSL
+certificate attached. Put the app on the proxy's Docker network (or forward to
+the host's published `3000`), and drop the `ports:` mapping from
+`docker-compose.yml` once you do, so the app is only reachable through the
+proxy.
+
+The app already reads `X-Forwarded-For` for rate limiting, so make sure the
+proxy sets it — Nginx Proxy Manager does by default. If you ever expose the app
+directly, that header becomes client-controlled and per-IP limits can be
+evaded; the per-account limits still hold.
 
 <!-- ------------------------------------------------------------------ -->
 

@@ -1,14 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/primitives";
 import { notify } from "@/components/ui/toast";
+import { CodeInput } from "./other-device-code";
 
 const TTL_SECONDS = 10 * 60;
 
 export function LinkSent({ email }: { email: string }) {
+  const router = useRouter();
   const [left, setLeft] = useState(TTL_SECONDS);
   const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  /**
+   * The other half of the cross-device flow. The email carries a six-digit
+   * code for exactly this case: you opened the link somewhere else, so you
+   * finish here, on the browser that asked for it.
+   */
+  async function submitCode(value: string) {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length !== 6 || checking) return;
+
+    setChecking(true);
+    setCodeError(null);
+    try {
+      const res = await fetch("/api/auth/code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: digits }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "That code didn't work.");
+      router.replace(body.next ?? "/vault");
+    } catch (error) {
+      setCodeError(
+        error instanceof Error ? error.message : "That code didn't work.",
+      );
+      setChecking(false);
+    }
+  }
 
   useEffect(() => {
     const started = Date.now();
@@ -97,6 +131,62 @@ export function LinkSent({ email }: { email: string }) {
       <Button onClick={resend} loading={busy}>
         Resend link
       </Button>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          width: "100%",
+          color: "var(--faint)",
+        }}
+      >
+        <span style={{ flex: 1, height: 1, background: "var(--line-10)" }} />
+        <span style={{ font: "600 11px var(--font-sans)", letterSpacing: ".06em" }}>
+          OR
+        </span>
+        <span style={{ flex: 1, height: 1, background: "var(--line-10)" }} />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <div
+          style={{
+            font: "400 13px/1.5 var(--font-sans)",
+            color: "var(--muted)",
+            textAlign: "center",
+            textWrap: "pretty",
+          }}
+        >
+          Opened the link on another device? Enter the six-digit code from the
+          email here.
+        </div>
+
+        <CodeInput
+          value={code}
+          onChange={setCode}
+          onComplete={submitCode}
+          error={codeError}
+          disabled={checking}
+        />
+
+        <Button
+          variant="primary"
+          block
+          loading={checking}
+          disabled={code.replace(/\D/g, "").length !== 6}
+          onClick={() => submitCode(code)}
+        >
+          Continue
+        </Button>
+      </div>
     </>
   );
 }
