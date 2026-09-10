@@ -1,0 +1,345 @@
+// keys — password manager
+// Design rule: the server never sees plaintext vault content.
+// Every `*Cipher` column holds client-side AES-256-GCM output (E2E).
+// PII the server must operate on (email) is encrypted at rest with a
+// server key and indexed by a blind HMAC so lookups stay possible.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- account
+
+model User {
+  id           String   @id @default(cuid())
+  emailCipher  String // AES-256-GCM(email) — server key
+  emailHash    String   @unique // HMAC-SHA256(email) — blind index for lookup
+  displayName  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // vault key material — all wrapped, never usable by the server
+  recoveryWrappedKey String? // vaultKey wrapped by the recovery code
+  recoverySalt       String?
+  recoveryHint       String? // e.g. "K7QM-••••-••••  ••••-••••-Q4BZ"
+  recoverySavedAt    DateTime?
+  recoveryCreatedAt  DateTime?
+
+  vaultCreatedAt DateTime?
+
+  locale     String @default("en")
+  dateFormat String @default("medium")
+  appearance String @default("light")
+
+  devices        Device[]
+  sessions       Session[]
+  magicLinks     MagicLink[]
+  items          VaultItem[]
+  folders        Folder[]
+  tags           Tag[]
+  approvals      DeviceApproval[]
+  events         SecurityEvent[]
+  prefs          NotificationPref?
+  settings       VaultSetting?
+  deletion       AccountDeletion?
+  ignoredIssues  IgnoredIssue[]
+  generatorItems GeneratedPassword[]
+
+  @@index([emailHash])
+}
+
+model VaultSetting {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  autoLockSeconds     Int     @default(300)
+  clipboardSeconds    Int     @default(30)
+  lockOnBlur          Boolean @default(false)
+  breachMonitoring    Boolean @default(true)
+  reverifyDays        Int     @default(30)
+  offlineEnabled      Boolean @default(true)
+  weeklyBackup        Boolean @default(false)
+  lastBackupAt        DateTime?
+  updatedAt           DateTime @updatedAt
+}
+
+model NotificationPref {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // sign-in links + device approvals + new device are required, not stored
+  breachEmail     Boolean @default(true)
+  breachInApp     Boolean @default(true)
+  digestEmail     Boolean @default(true)
+  trashEmail      Boolean @default(true)
+  nativeNotifs    Boolean @default(false)
+  updatedAt       DateTime @updatedAt
+}
+
+model AccountDeletion {
+  userId      String   @id
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason      Reason
+  requestedAt DateTime @default(now())
+  scheduledAt DateTime
+  cancelledAt DateTime?
+  remindedDay Int      @default(0)
+}
+
+enum Reason {
+  START_OVER
+  DELETE_ACCOUNT
+}
+
+// ------------------------------------------------------------------- auth
+
+model MagicLink {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique // sha256 of the emailed token
+  code       String // 6-digit cross-device match code
+  purpose    String   @default("signin")
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  // fingerprint of the browser that asked, so we can detect "opened elsewhere"
+  originUa     String?
+  originIp     String?
+  originLabel  String? // "Chrome on MacBook Pro"
+  originHandle String   @unique // opaque id stored in a cookie on the asking device
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId  String?
+  device    Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  tokenHash String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  lastSeenAt DateTime @default(now())
+  reverifyAt DateTime
+  revokedAt DateTime?
+  ua        String?
+  ip        String?
+
+  @@index([userId])
+}
+
+model Device {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name     String // "MacBook Pro"
+  browser  String // "Chrome"
+  platform String @default("")
+
+  // WebAuthn credential backing Touch ID / Face ID
+  credentialId String? @unique
+  publicKey    String?
+  counter      Int     @default(0)
+  transports   String?
+  prfSalt      String? // salt for the PRF extension → device key
+  usesPrf      Boolean @default(false)
+
+  // vaultKey wrapped by this device's key. Only this device can open it.
+  wrappedVaultKey String?
+
+  // X25519-ish public key (raw JWK) used to receive the vault key from
+  // another device during approval.
+  transferPublicKey String?
+
+  enrolledAt DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+  undoUntil  DateTime? // 24h window in which any device can remove it
+  addedFrom  String? // "Amsterdam, NL"
+
+  sessions          Session[]
+  approvalsAsNew    DeviceApproval[] @relation("approvalNewDevice")
+  approvalsAsSource DeviceApproval[] @relation("approvalApprover")
+
+  @@index([userId])
+}
+
+model DeviceApproval {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  newDeviceId String
+  newDevice   Device   @relation("approvalNewDevice", fields: [newDeviceId], references: [id], onDelete: Cascade)
+
+  approverId  String?
+  approver    Device?  @relation("approvalApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  matchCode   String // 6 digits, shown on both screens
+  status      ApprovalStatus @default(PENDING)
+
+  // vaultKey re-wrapped to the new device's transfer key, end-to-end
+  sealedKey   String?
+
+  requestedAt DateTime @default(now())
+  expiresAt   DateTime
+  resolvedAt  DateTime?
+
+  deviceLabel String
+  location    String?
+
+  @@index([userId, status])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+  EXPIRED
+}
+
+// ------------------------------------------------------------------ vault
+
+model VaultItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type ItemType
+
+  // AES-256-GCM ciphertext of the whole item payload (name, username,
+  // password, url, notes, totp secret, custom fields). Opaque to the server.
+  cipher String
+  iv     String
+
+  // Non-secret metadata the server is allowed to sort and page on.
+  folderId  String?
+  folder    Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  favorite  Boolean  @default(false)
+  hasTotp   Boolean  @default(false)
+
+  // Strength/breach verdicts are computed on the device and stored as a
+  // coarse label so the security tab can page without decrypting everything.
+  strength   Int? // 0-100
+  breached   Boolean  @default(false)
+  reusedKey  String? // HMAC of the password, lets the client group reuse
+  pwChangedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  eraseAt   DateTime?
+
+  tags    ItemTag[]
+  history PasswordHistory[]
+
+  @@index([userId, type, deletedAt])
+  @@index([userId, updatedAt])
+  @@index([userId, reusedKey])
+}
+
+enum ItemType {
+  PASSWORD
+  NOTE
+}
+
+model PasswordHistory {
+  id        String    @id @default(cuid())
+  itemId    String
+  item      VaultItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  cipher    String
+  iv        String
+  usedFrom  DateTime
+  usedUntil DateTime  @default(now())
+
+  @@index([itemId, usedUntil])
+}
+
+model Folder {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  nameCipher String
+  iv         String
+  color      String @default("#78716c")
+  position   Int    @default(0)
+  createdAt  DateTime @default(now())
+
+  items VaultItem[]
+
+  @@index([userId])
+}
+
+model Tag {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  nameCipher String
+  iv         String
+  // blind index so the same tag name collapses to one row per user
+  nameHash   String
+  createdAt  DateTime @default(now())
+
+  items ItemTag[]
+
+  @@unique([userId, nameHash])
+  @@index([userId])
+}
+
+model ItemTag {
+  itemId String
+  tagId  String
+  item   VaultItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag    Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([tagId])
+}
+
+model IgnoredIssue {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId String
+  kind   String // breached | weak | reused | old | no2fa
+  createdAt DateTime @default(now())
+
+  @@unique([userId, itemId, kind])
+}
+
+model GeneratedPassword {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cipher    String
+  iv        String
+  createdAt DateTime @default(now())
+  expiresAt DateTime // 24h
+
+  @@index([userId, createdAt])
+}
+
+// ----------------------------------------------------------------- events
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

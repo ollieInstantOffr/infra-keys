@@ -1,0 +1,269 @@
+/* ------------------------------------------------------------------
+   keys — design tokens
+
+   Off-white ground with a single faint orange glow in one corner.
+   Orange appears only as accent: primary button, active state, links,
+   strength/alert marks. Warm greys for everything else, mono for secrets.
+   ------------------------------------------------------------------ */
+
+:root {
+  --accent: #ea580c;
+  --accent-hover: #c2410c;
+  --accent-glow: rgba(255, 138, 76, 0.3);
+  --accent-soft: rgba(234, 88, 12, 0.08);
+  --accent-soft-2: rgba(234, 88, 12, 0.1);
+  --accent-line: rgba(234, 88, 12, 0.2);
+  --accent-deep: #7c2d12;
+
+  --ink: #1c1917;
+  --ink-2: #44403c;
+  --text: #57534e;
+  --muted: #78716c;
+  --faint: #a8a29e;
+  --hairline-strong: #d6d3d1;
+  --wash: #e7e5e4;
+
+  --ground: #faf9f7;
+  --canvas: #efedea;
+  --surface: #ffffff;
+
+  --glass-50: rgba(255, 255, 255, 0.5);
+  --glass-70: rgba(255, 255, 255, 0.7);
+  --glass-75: rgba(255, 255, 255, 0.75);
+  --glass-82: rgba(255, 255, 255, 0.82);
+  --glass-90: rgba(255, 255, 255, 0.9);
+  --glass-edge: rgba(255, 255, 255, 0.95);
+
+  --line-05: rgba(28, 25, 23, 0.05);
+  --line-06: rgba(28, 25, 23, 0.06);
+  --line-07: rgba(28, 25, 23, 0.07);
+  --line-10: rgba(28, 25, 23, 0.1);
+  --line-12: rgba(28, 25, 23, 0.12);
+  --line-20: rgba(28, 25, 23, 0.2);
+
+  --blur: 24px;
+
+  --shadow-card: 0 8px 30px rgba(60, 30, 10, 0.05);
+  --shadow-panel: 0 12px 40px rgba(60, 30, 10, 0.08);
+  --shadow-over: 0 24px 70px rgba(60, 30, 10, 0.16);
+  --shadow-modal: 0 30px 80px rgba(60, 30, 10, 0.2);
+  --shadow-toast: 0 12px 40px rgba(28, 25, 23, 0.3);
+
+  --font-sans: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, monospace;
+
+  --nav-h: 64px;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+a {
+  color: var(--accent);
+  font-weight: 600;
+}
+a:hover {
+  color: var(--accent-hover);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+}
+
+button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent-soft-2);
+}
+
+/* the single corner glow every screen sits on --------------------- */
+
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--accent-glow) 0%,
+    rgba(255, 138, 76, 0) 70%
+  );
+  pointer-events: none;
+}
+.glow-tr {
+  width: 900px;
+  height: 900px;
+  right: -300px;
+  top: -300px;
+}
+.glow-bl {
+  width: 900px;
+  height: 900px;
+  left: -350px;
+  bottom: -400px;
+}
+
+/* glass surfaces -------------------------------------------------- */
+
+.glass {
+  background: var(--glass-75);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--glass-edge);
+}
+
+/* type scale ------------------------------------------------------ */
+
+.t-page {
+  font: 800 30px var(--font-sans);
+  letter-spacing: -0.03em;
+}
+.t-title {
+  font: 800 24px var(--font-sans);
+  letter-spacing: -0.02em;
+}
+.t-card {
+  font: 700 22px var(--font-sans);
+  letter-spacing: -0.02em;
+}
+.t-sub {
+  font: 500 14px var(--font-sans);
+  color: var(--muted);
+}
+.t-label {
+  font: 600 12px var(--font-sans);
+  color: var(--muted);
+}
+.t-eyebrow {
+  font: 600 11px var(--font-sans);
+  color: var(--faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* the TOTP ring animation the design specifies -------------------- */
+
+@keyframes totp {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slideOver {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulseRing {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.75;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* scrollbars stay out of the way ---------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* installed PWA: no rubber-band, respect the title bar ------------ */
+
+@media all and (display-mode: standalone) {
+  body {
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable] {
+    user-select: text;
+  }
+}

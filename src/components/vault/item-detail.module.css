@@ -1,0 +1,251 @@
+.panel {
+  position: fixed;
+  top: calc(var(--nav-h) + 16px);
+  right: 16px;
+  bottom: 16px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  border-radius: 22px;
+  background: var(--glass-82);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-over);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+  z-index: 40;
+  animation: slideOver 0.22s ease both;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.mono {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: #fff;
+  font: 700 18px var(--font-sans);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.title {
+  font: 800 22px var(--font-sans);
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.url {
+  font: 500 13px var(--font-sans);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.headActions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: none;
+}
+
+.iconButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--line-10);
+  background: var(--surface);
+  font: 600 14px var(--font-sans);
+  color: var(--muted);
+  cursor: pointer;
+}
+.iconButton:hover {
+  border-color: var(--line-20);
+}
+.iconButton[data-on] {
+  color: var(--accent);
+}
+
+.breach {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+}
+.breachDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+.breachText {
+  font: 600 13px/1.4 var(--font-sans);
+  color: var(--accent-deep);
+  flex: 1;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-06);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.value {
+  font: 600 14px var(--font-sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.secret {
+  font: 500 14px var(--font-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.totp {
+  font: 500 22px var(--font-mono);
+  letter-spacing: 0.12em;
+}
+.seconds {
+  font: 500 11px var(--font-mono);
+  color: var(--faint);
+  flex: none;
+  min-width: 26px;
+  text-align: right;
+}
+
+.link {
+  border: none;
+  background: transparent;
+  font: 600 12px var(--font-sans);
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+.link:hover {
+  color: var(--accent-hover);
+}
+.linkGroup {
+  display: flex;
+  gap: 10px;
+  flex: none;
+}
+
+.strengthRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tagRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 13px var(--font-sans);
+}
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.tag {
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  font: 600 12px var(--font-sans);
+  color: var(--accent);
+}
+
+.notes {
+  font: 500 13px/1.5 var(--font-sans);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+
+.error {
+  font: 500 12px var(--font-sans);
+  color: var(--accent);
+}
+
+.foot {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font: 500 12px var(--font-sans);
+  color: var(--faint);
+  flex: none;
+}
+.footActions {
+  display: flex;
+  gap: 14px;
+  flex: none;
+}
+.footLink {
+  border: none;
+  background: transparent;
+  font: 600 12px var(--font-sans);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+.footLink:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .panel {
+    left: 16px;
+    width: auto;
+  }
+}

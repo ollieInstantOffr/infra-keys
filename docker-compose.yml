@@ -1,0 +1,71 @@
+name: keys
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-keys}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-keys}
+      POSTGRES_DB: ${POSTGRES_DB:-keys}
+      # scram-sha-256 rather than the image default
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - keys-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-keys} -d ${POSTGRES_DB:-keys}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # not published by default — the app reaches it over the compose network
+    expose:
+      - "5432"
+
+  # One-shot. Runs `prisma migrate deploy` from the build stage, which still
+  # has the full toolchain, then exits — so the runtime image stays lean and
+  # never ships the Prisma CLI.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    command: ["npx", "prisma", "migrate", "deploy"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-keys}:${POSTGRES_PASSWORD:-keys}@db:5432/${POSTGRES_DB:-keys}?schema=public
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-keys}:${POSTGRES_PASSWORD:-keys}@db:5432/${POSTGRES_DB:-keys}?schema=public
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+      APP_INDEX_KEY: ${APP_INDEX_KEY}
+      SESSION_SECRET: ${SESSION_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM:-keys <onboarding@resend.dev>}
+      RP_ID: ${RP_ID:-localhost}
+      RP_NAME: ${RP_NAME:-keys}
+      NODE_ENV: production
+    ports:
+      - "${PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  keys-db:

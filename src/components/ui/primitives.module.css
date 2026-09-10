@@ -1,0 +1,237 @@
+/* ------------------------------------------------------------- button */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    filter 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.block {
+  width: 100%;
+}
+
+.s_sm {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font: 700 12px var(--font-sans);
+}
+.s_md {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 11px;
+  font: 600 13px var(--font-sans);
+}
+.s_lg {
+  height: 48px;
+  padding: 0 22px;
+  border-radius: 12px;
+  font: 700 15px var(--font-sans);
+}
+
+.v_primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.v_primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.v_dark {
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+}
+.v_dark:hover:not(:disabled) {
+  background: #292524;
+}
+
+.v_secondary {
+  background: var(--surface);
+  border: 1px solid var(--line-12);
+  color: var(--ink);
+}
+.v_secondary:hover:not(:disabled) {
+  border-color: var(--line-20);
+}
+
+.v_ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.v_ghost:hover:not(:disabled) {
+  background: var(--line-05);
+  color: var(--ink);
+}
+
+.v_icon {
+  background: var(--surface);
+  border: 1px solid var(--line-10);
+  color: var(--ink);
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+.v_icon:hover:not(:disabled) {
+  border-color: var(--line-20);
+}
+
+/* -------------------------------------------------------------- field */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.input {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 11px;
+  border: 1px solid var(--line-12);
+  background: var(--surface);
+  font: 500 14px var(--font-sans);
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s ease;
+}
+.input:focus {
+  border-color: var(--accent);
+  border-width: 1.5px;
+}
+.inputMono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+}
+.inputError {
+  border-color: var(--accent);
+}
+.error {
+  font: 500 12px var(--font-sans);
+  color: var(--accent);
+}
+.hint {
+  font: 500 12px var(--font-sans);
+  color: var(--faint);
+}
+
+/* ------------------------------------------------------------- toggle */
+
+.toggle {
+  width: 40px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(28, 25, 23, 0.15);
+  border: none;
+  position: relative;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+  transition: background 0.18s ease;
+}
+.toggleOn {
+  background: var(--accent);
+}
+.knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.toggleOn .knob {
+  transform: translateX(16px);
+}
+.toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* -------------------------------------------------------- containers */
+
+.glassBox {
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.pill {
+  padding: 7px 12px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--line-10);
+  font: 600 12px var(--font-sans);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.pill:hover {
+  border-color: var(--line-20);
+}
+.pillActive {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.pillPlain {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.chip {
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  font: 600 12px var(--font-sans);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.meter {
+  border-radius: 2px;
+  background: rgba(28, 25, 23, 0.08);
+  overflow: hidden;
+  flex: none;
+}
+.meterFill {
+  height: 100%;
+  border-radius: 2px;
+  transition:
+    width 0.3s ease,
+    background 0.3s ease;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex: none;
+}

@@ -1,0 +1,70 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px 12px 16px;
+  border-radius: 14px;
+  background: rgba(234, 88, 12, 0.08);
+  border: 1px solid rgba(234, 88, 12, 0.2);
+}
+.banner[data-tone="alert"] {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: rgba(234, 88, 12, 0.3);
+}
+.banner[data-tone="neutral"] {
+  background: var(--glass-75);
+  backdrop-filter: blur(var(--blur));
+  border-color: var(--glass-edge);
+}
+
+.mark {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.title {
+  font: 700 13px var(--font-sans);
+  color: var(--accent-deep);
+}
+.banner[data-tone="neutral"] .title {
+  color: var(--ink);
+}
+.body {
+  font: 500 12.5px/1.45 var(--font-sans);
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.secondary {
+  background: transparent;
+  border: none;
+  font: 600 12px var(--font-sans);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px 4px;
+}
+.secondary:hover {
+  color: var(--ink);
+}

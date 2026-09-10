@@ -1,0 +1,28 @@
+.row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.cell {
+  width: 44px;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font: 500 22px var(--font-mono);
+  color: var(--ink);
+  outline: none;
+  padding: 0;
+}
+input.cell:focus {
+  border-color: var(--accent);
+  border-width: 1.5px;
+}
+.cell[data-error="true"] {
+  border-color: var(--accent);
+}

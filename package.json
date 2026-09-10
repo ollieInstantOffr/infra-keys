@@ -1,0 +1,38 @@
+{
+  "name": "keys",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "icons": "tsx scripts/generate-icons.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "@simplewebauthn/browser": "^13.1.0",
+    "@simplewebauthn/server": "^13.1.1",
+    "clsx": "^2.1.1",
+    "jose": "^6.0.13",
+    "next": "^15.5.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "resend": "^6.0.3",
+    "server-only": "^0.0.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "prisma": "^6.16.2",
+    "sharp": "^0.34.3",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}
